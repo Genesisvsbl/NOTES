@@ -5,20 +5,14 @@ import { supabase } from "@/lib/supabase-client";
 import { createStore } from "@/lib/store-supabase";
 import { createAI } from "@/lib/ai-client";
 
-/* Entras con tu correo (o con un usuario corto, si configuras un dominio propio)
- * y una contraseña. La primera vez la cuenta se crea sola.
+/* ENTRADA CON CLAVE
+ * Solo escribes la clave (ej: 3026). El correo va fijo aquí dentro y la clave
+ * se convierte en una contraseña larga, porque Supabase exige 6+ caracteres.
  *
- * Supabase exige que el dominio del correo exista de verdad, así que un
- * "gene@inventado.app" lo rechaza. Si tienes dominio propio, ponlo en
- * NEXT_PUBLIC_AUTH_DOMAIN y entonces sí puedes entrar escribiendo solo "gene".  */
-const DOMINIO = (process.env.NEXT_PUBLIC_AUTH_DOMAIN || "").trim();
-
-function aCorreo(u) {
-  const s = u.trim().toLowerCase();
-  if (s.includes("@")) return s;
-  if (DOMINIO) return s.replace(/[^a-z0-9._-]/g, "") + "@" + DOMINIO;
-  return "";
-}
+ * El usuario se crea corriendo supabase/setup.sql en el SQL Editor.
+ * Si cambias la clave, cambia también la del SQL (van juntas).                  */
+const CORREO = process.env.NEXT_PUBLIC_LOGIN_EMAIL || "gene@notesgene.app";
+const aClave = (c) => "NG-" + c.trim() + "-notesgene";
 
 function Logo() {
   return (
@@ -36,17 +30,30 @@ export default function NotesGeneApp() {
   const host = useRef(null);
   const mounted = useRef(false);
   const [session, setSession] = useState(undefined); // undefined = cargando
-  const [user, setUser] = useState("");
-  const [pass, setPass] = useState("");
+  const [clave, setClave] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [instalar, setInstalar] = useState(null);   // evento de instalación (Android/Chrome)
+  const [comoIOS, setComoIOS] = useState(false);    // iPhone/iPad: se instala a mano
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
-    return () => data.subscription.unsubscribe();
+
+    /* ---- instalar como app ---- */
+    const yaInstalada =
+      window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (!yaInstalada && esIOS) setComoIOS(true);
+    const onPrompt = (e) => { e.preventDefault(); if (!yaInstalada) setInstalar(e); };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+
+    return () => {
+      data.subscription.unsubscribe();
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+    };
   }, []);
 
   useEffect(() => {
@@ -62,32 +69,21 @@ export default function NotesGeneApp() {
 
   async function entrar(e) {
     e.preventDefault();
-    setErr(""); setMsg(""); setBusy(true);
-    const email = aCorreo(user);
-    if (!user.trim()) { setErr("Escribe tu usuario."); setBusy(false); return; }
-    if (!email) {
-      setErr("Escribe tu correo completo (ej: tucorreo@gmail.com). Supabase exige un dominio real.");
-      setBusy(false); return;
-    }
-    if (pass.length < 6) { setErr("La contraseña necesita al menos 6 caracteres."); setBusy(false); return; }
+    setErr(""); setBusy(true);
+    if (!clave.trim()) { setErr("Escribe tu clave."); setBusy(false); return; }
 
-    let { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: CORREO,
+      password: aClave(clave),
+    });
 
     if (error) {
-      /* usuario nuevo: se crea y entra de una */
-      const up = await supabase.auth.signUp({ email, password: pass });
-      if (up.error) {
-        setErr(
-          /already|registered/i.test(up.error.message)
-            ? "Ese usuario existe pero la contraseña no coincide."
-            : up.error.message
-        );
-      } else if (!up.data.session) {
-        setMsg(
-          "Cuenta creada, pero Supabase está pidiendo confirmación por correo. " +
-            "Entra a Supabase → Authentication → Providers → Email y desactiva «Confirm email»."
-        );
-      }
+      setErr(
+        /invalid/i.test(error.message)
+          ? "Clave incorrecta."
+          : "No se pudo entrar: " + error.message
+      );
+      setClave("");
     }
     setBusy(false);
   }
@@ -101,30 +97,40 @@ export default function NotesGeneApp() {
         <div className="gate-card">
           <Logo />
           <span className="gate-mark">Notes<em>Gene</em></span>
-          <p className="gate-quiet">
-            Entra con tu correo y una contraseña. La primera vez queda creada la cuenta,
-            y en este dispositivo no te la vuelve a pedir.
-          </p>
+          <p className="gate-quiet">Escribe tu clave para abrir tus cuadernos.</p>
           <form onSubmit={entrar} className="gate-form">
             <input
-              value={user}
-              onChange={(e) => setUser(e.target.value)}
-              placeholder="tu correo"
-              autoCapitalize="none"
-              autoCorrect="off"
-              aria-label="Usuario o correo"
-            />
-            <input
               type="password"
-              value={pass}
-              onChange={(e) => setPass(e.target.value)}
-              placeholder="contraseña"
-              aria-label="Contraseña"
+              inputMode="numeric"
+              value={clave}
+              onChange={(e) => setClave(e.target.value)}
+              placeholder="clave"
+              autoFocus
+              autoComplete="current-password"
+              aria-label="Clave"
             />
-            <button type="submit" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>
+            <button type="submit" disabled={busy}>{busy ? "Abriendo…" : "Entrar"}</button>
           </form>
           {err && <p className="gate-err">{err}</p>}
-          {msg && <p className="gate-ok">{msg}</p>}
+
+          {instalar && (
+            <button
+              className="gate-install"
+              onClick={async () => { instalar.prompt(); setInstalar(null); }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                   strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3v12M8 11l4 4 4-4M4 20h16" />
+              </svg>
+              Instalar NotesGene en este teléfono
+            </button>
+          )}
+          {comoIOS && !instalar && (
+            <p className="gate-tip">
+              Para tenerla como app en el iPhone o iPad: botón <b>Compartir</b> de Safari →
+              <b> Añadir a pantalla de inicio</b>. Queda con su ícono y abre a pantalla completa.
+            </p>
+          )}
         </div>
       </div>
     );

@@ -254,3 +254,13 @@ textarea.ta.code{font-family:var(--font-mono);font-size:12.5px;min-height:150px}
 .gate-form button:disabled{opacity:.6;cursor:default}
 .gate-ok{color:var(--accent);font-size:13.5px;line-height:1.5;margin-top:14px}
 .gate-err{color:var(--danger);font-size:13.5px;margin-top:14px}
+
+/* ---- instalar como app (celular) ---- */
+.gate-install{display:inline-flex;align-items:center;gap:9px;margin-top:20px;height:44px;
+  padding:0 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent-soft);
+  color:var(--accent);font-size:14px;font-weight:600;cursor:pointer}
+.gate-install:hover{background:var(--accent);color:#fff}
+.gate-install svg{width:18px;height:18px;flex:0 0 auto}
+.gate-tip{margin-top:20px;font-size:13px;line-height:1.55;color:var(--muted);
+  border-left:2px solid var(--accent);padding-left:12px;max-width:38ch}
+.gate-tip b{color:var(--ink);font-weight:600}
