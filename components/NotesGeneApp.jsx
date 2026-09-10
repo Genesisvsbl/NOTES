@@ -5,13 +5,20 @@ import { supabase } from "@/lib/supabase-client";
 import { createStore } from "@/lib/store-supabase";
 import { createAI } from "@/lib/ai-client";
 
-/* Entras con USUARIO (ej: gene) y contraseña.
- * Supabase por dentro trabaja con correos, así que el usuario se convierte en
- * "<usuario>@notesgene.app". Nunca lo escribes tú.
- * La primera vez que entras con un usuario nuevo, la cuenta se crea sola.       */
-const DOMINIO = "notesgene.app";
-const aCorreo = (u) =>
-  u.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "") + "@" + DOMINIO;
+/* Entras con tu correo (o con un usuario corto, si configuras un dominio propio)
+ * y una contraseña. La primera vez la cuenta se crea sola.
+ *
+ * Supabase exige que el dominio del correo exista de verdad, así que un
+ * "gene@inventado.app" lo rechaza. Si tienes dominio propio, ponlo en
+ * NEXT_PUBLIC_AUTH_DOMAIN y entonces sí puedes entrar escribiendo solo "gene".  */
+const DOMINIO = (process.env.NEXT_PUBLIC_AUTH_DOMAIN || "").trim();
+
+function aCorreo(u) {
+  const s = u.trim().toLowerCase();
+  if (s.includes("@")) return s;
+  if (DOMINIO) return s.replace(/[^a-z0-9._-]/g, "") + "@" + DOMINIO;
+  return "";
+}
 
 function Logo() {
   return (
@@ -58,6 +65,10 @@ export default function NotesGeneApp() {
     setErr(""); setMsg(""); setBusy(true);
     const email = aCorreo(user);
     if (!user.trim()) { setErr("Escribe tu usuario."); setBusy(false); return; }
+    if (!email) {
+      setErr("Escribe tu correo completo (ej: tucorreo@gmail.com). Supabase exige un dominio real.");
+      setBusy(false); return;
+    }
     if (pass.length < 6) { setErr("La contraseña necesita al menos 6 caracteres."); setBusy(false); return; }
 
     let { error } = await supabase.auth.signInWithPassword({ email, password: pass });
@@ -91,17 +102,17 @@ export default function NotesGeneApp() {
           <Logo />
           <span className="gate-mark">Notes<em>Gene</em></span>
           <p className="gate-quiet">
-            Entra con tu usuario. La primera vez queda creado con la contraseña que pongas,
-            y en este dispositivo no te lo vuelve a pedir.
+            Entra con tu correo y una contraseña. La primera vez queda creada la cuenta,
+            y en este dispositivo no te la vuelve a pedir.
           </p>
           <form onSubmit={entrar} className="gate-form">
             <input
               value={user}
               onChange={(e) => setUser(e.target.value)}
-              placeholder="usuario"
+              placeholder="tu correo"
               autoCapitalize="none"
               autoCorrect="off"
-              aria-label="Usuario"
+              aria-label="Usuario o correo"
             />
             <input
               type="password"
