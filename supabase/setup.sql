@@ -43,6 +43,18 @@ create table if not exists public.images (
 );
 create index if not exists images_nb on public.images (notebook_id);
 
+-- ---------------- permisos del rol que usa la app ----------------
+-- Sin esto Postgres responde 42501 "permission denied", aunque las tablas existan.
+-- Quién ve QUÉ filas lo sigue decidiendo la seguridad por usuario de más abajo.
+grant usage on schema public to anon, authenticated;
+
+grant select, insert, update, delete on public.notebooks to authenticated;
+grant select, insert, update, delete on public.pages     to authenticated;
+grant select, insert, update, delete on public.images    to authenticated;
+
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to authenticated;
+
 -- ---------------- cada quien ve solo lo suyo ----------------
 alter table public.notebooks enable row level security;
 alter table public.pages     enable row level security;

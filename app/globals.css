@@ -141,6 +141,14 @@ textarea,input,select{font:inherit;color:inherit}
 canvas#pad{display:block;background:var(--paper);border-radius:2px;touch-action:none}
 #txtbox{position:absolute;z-index:5;border:1px solid var(--accent);background:rgba(255,255,255,.94);
   color:#111418;border-radius:4px;padding:4px 6px;resize:none;outline:none;line-height:1.35;min-width:130px}
+#selbar{position:absolute;z-index:6;display:flex;gap:6px}
+#selbar button{height:30px;padding:0 11px;border-radius:8px;border:1px solid var(--accent);
+  background:var(--panel);color:var(--accent);font-size:12.5px;font-weight:600;box-shadow:var(--shadow-1);
+  display:inline-flex;align-items:center;gap:6px}
+#selbar button:hover{background:var(--accent);color:#fff}
+#selbar button svg{width:14px;height:14px}
+#selbar button[data-d]{border-color:var(--line);color:var(--muted)}
+#selbar button[data-d]:hover{background:var(--danger);border-color:var(--danger);color:#fff}
 
 .drawer{width:190px;flex:0 0 auto;background:var(--panel);border-left:1px solid var(--line);
   display:flex;flex-direction:column}
