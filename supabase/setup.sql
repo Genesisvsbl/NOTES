@@ -33,6 +33,9 @@ create table if not exists public.pages (
 );
 create index if not exists pages_nb_idx on public.pages (notebook_id, idx);
 
+-- tamaño y orientación de cada página: a4-v, a4-h, carta-v, carta-h
+alter table public.pages add column if not exists hoja text not null default 'a4-v';
+
 -- ---------------- fotos de los pasos del instructivo ----------------
 create table if not exists public.images (
   id           text primary key,
