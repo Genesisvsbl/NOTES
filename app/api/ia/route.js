@@ -21,14 +21,16 @@ const MODELO_ANTHROPIC = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
 const BASE_G = "https://generativelanguage.googleapis.com/v1beta";
 
 const bad = (code, message, status) => Response.json({ code, message }, { status: status || 400 });
+/* Vercel corta la función a los ~60 s: nos guardamos margen. */
+const LIMITE_MS = 22000;
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const saturado = (s) => s === 503 || s === 429;
 
 /* ---------- qué modelos tiene REALMENTE la llave de Gemini ---------- */
 let cacheModelos = null;
 function prioridad(n) {
-  if (/2\.5-flash-lite|flash-lite/.test(n)) return 1;
-  if (/2\.5-flash/.test(n)) return 0;
+  if (/flash-lite/.test(n)) return 0;      /* el más rápido */
+  if (/2\.5-flash/.test(n)) return 1;
   if (/flash-latest/.test(n)) return 2;
   if (/flash/.test(n)) return 3;
   if (/pro/.test(n)) return 5;
@@ -49,7 +51,7 @@ async function modelosGemini() {
       cacheModelos = preferido && lista.includes(preferido)
         ? [preferido, ...lista.filter((n) => n !== preferido)]
         : lista;
-      return cacheModelos.slice(0, 5);
+      return cacheModelos.slice(0, 3);
     }
   } catch (e) { /* sin lista: seguimos con los de siempre */ }
   return [preferido, "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
@@ -57,18 +59,19 @@ async function modelosGemini() {
 }
 
 /* ---------- proveedores: {text} si sale bien, {err} si no ---------- */
-async function porGemini({ texto, image, mediaType, maxTokens }) {
+async function porGemini({ texto, image, mediaType, maxTokens, t0 }) {
   const parts = [];
   if (image) parts.push({ inline_data: { mime_type: mediaType || "image/jpeg", data: image } });
   parts.push({ text: texto });
   const cuerpo = JSON.stringify({
     contents: [{ role: "user", parts }],
-    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 },
+    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 },
   });
 
   let ultimo = null;
   for (const modelo of await modelosGemini()) {
-    for (const espera of [0, 1500]) {
+    for (const espera of [0, 900]) {
+      if (Date.now() - t0 > LIMITE_MS) return { err: ultimo || {status:503, msg:"tiempo agotado", modelo:modelo} };
       if (espera) await dormir(espera);
       const r = await fetch(BASE_G + "/models/" + modelo + ":generateContent", {
         method: "POST",
@@ -152,11 +155,13 @@ export async function POST(req) {
   const args = {
     texto: prompt.slice(0, 60000),
     image, mediaType,
-    maxTokens: tier === "quick" ? 1024 : 3000,
+    maxTokens: tier === "quick" ? 600 : 3000,
+    t0: Date.now(),
   };
 
   let ultimo = null;
   for (const proveedor of cadena) {
+    if (Date.now() - args.t0 > LIMITE_MS + 8000) break;
     try {
       const r = await proveedor(args);
       if (r.text) return Response.json({ text: r.text, truncated: !!r.truncated });
