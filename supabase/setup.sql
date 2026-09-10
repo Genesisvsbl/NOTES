@@ -1,0 +1,121 @@
+-- ============================================================
+-- NotesGene · montaje completo
+-- Pégalo en Supabase → SQL Editor → New query → Run.
+-- Se puede correr varias veces sin daño.
+--
+-- Crea: tablas + seguridad por usuario + el usuario que entra con clave 3026.
+-- Si cambias la clave aquí, cámbiala también en components/NotesGeneApp.jsx.
+-- ============================================================
+
+create extension if not exists pgcrypto;
+
+-- ---------------- cuadernos ----------------
+create table if not exists public.notebooks (
+  id          text primary key,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  name        text not null default 'Sin título',
+  updated_at  bigint not null default 0,
+  pages       int  not null default 1,
+  step_n      int  not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+-- ---------------- páginas (con su contenido) ----------------
+create table if not exists public.pages (
+  id           text primary key,
+  notebook_id  text not null references public.notebooks(id) on delete cascade,
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  idx          int  not null default 0,
+  tpl          text not null default 'ruled',
+  bg           text default '',
+  items        jsonb not null default '[]'::jsonb,
+  updated_at   timestamptz not null default now()
+);
+create index if not exists pages_nb_idx on public.pages (notebook_id, idx);
+
+-- ---------------- fotos de los pasos del instructivo ----------------
+create table if not exists public.images (
+  id           text primary key,
+  notebook_id  text not null references public.notebooks(id) on delete cascade,
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  data         text not null,
+  created_at   timestamptz not null default now()
+);
+create index if not exists images_nb on public.images (notebook_id);
+
+-- ---------------- cada quien ve solo lo suyo ----------------
+alter table public.notebooks enable row level security;
+alter table public.pages     enable row level security;
+alter table public.images    enable row level security;
+
+drop policy if exists "notebooks propios" on public.notebooks;
+create policy "notebooks propios" on public.notebooks
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "pages propias" on public.pages;
+create policy "pages propias" on public.pages
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "images propias" on public.images;
+create policy "images propias" on public.images
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ============================================================
+-- Usuario que entra con la clave 3026
+-- La app manda 'NG-3026-notesgene' como contraseña real.
+-- ============================================================
+do $$
+declare
+  v_correo text := 'gene@notesgene.app';
+  v_pass   text := 'NG-3026-notesgene';
+  uid uuid;
+begin
+  select id into uid from auth.users where email = v_correo;
+
+  if uid is null then
+    uid := gen_random_uuid();
+
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, created_at, updated_at,
+      raw_app_meta_data, raw_user_meta_data,
+      confirmation_token, recovery_token, email_change_token_new, email_change
+    ) values (
+      '00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated',
+      v_correo, crypt(v_pass, gen_salt('bf')),
+      now(), now(), now(),
+      '{"provider":"email","providers":["email"]}', '{"nombre":"Gene"}',
+      '', '', '', ''
+    );
+
+    begin
+      insert into auth.identities (
+        id, user_id, provider_id, identity_data, provider,
+        last_sign_in_at, created_at, updated_at
+      ) values (
+        gen_random_uuid(), uid, uid::text,
+        jsonb_build_object('sub', uid::text, 'email', v_correo), 'email',
+        now(), now(), now()
+      );
+    exception when others then
+      -- versiones de Supabase sin la columna id en auth.identities
+      insert into auth.identities (
+        user_id, provider_id, identity_data, provider,
+        last_sign_in_at, created_at, updated_at
+      ) values (
+        uid, uid::text,
+        jsonb_build_object('sub', uid::text, 'email', v_correo), 'email',
+        now(), now(), now()
+      );
+    end;
+
+    raise notice 'Usuario creado: % (clave 3026)', v_correo;
+  else
+    update auth.users
+       set encrypted_password = crypt(v_pass, gen_salt('bf')),
+           email_confirmed_at = coalesce(email_confirmed_at, now()),
+           updated_at = now()
+     where id = uid;
+    raise notice 'Clave actualizada para %', v_correo;
+  end if;
+end $$;
