@@ -3,23 +3,52 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/* Funciona con cualquiera de las dos llaves. Si pones las dos, manda Gemini.
+/* Llaves. Si pones las dos, manda Gemini.
  *   GEMINI_API_KEY     → aistudio.google.com/apikey  (capa GRATIS, con imágenes)
  *   ANTHROPIC_API_KEY  → console.anthropic.com       (de pago, con saldo)          */
 const GEMINI = process.env.GEMINI_API_KEY;
 const ANTHROPIC = process.env.ANTHROPIC_API_KEY;
 const MODELO_ANTHROPIC = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
-
-/* Si el modelo configurado no existe para esta llave, se prueban los siguientes. */
-const MODELOS_GEMINI = [
-  process.env.GEMINI_MODEL,
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-flash-latest",
-].filter((m, i, a) => m && a.indexOf(m) === i);
+const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 function bad(code, message, status) {
   return Response.json({ code, message }, { status: status || 400 });
+}
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ---- qué modelos tiene REALMENTE esta llave ---------------------------- */
+let cacheModelos = null;
+
+function prioridad(n) {
+  if (/flash-lite/.test(n)) return 3;
+  if (/2\.5-flash/.test(n)) return 0;
+  if (/flash-latest/.test(n)) return 1;
+  if (/flash/.test(n)) return 2;
+  if (/pro/.test(n)) return 4;
+  return 6;
+}
+
+async function modelosDisponibles() {
+  if (cacheModelos) return cacheModelos;
+  const preferido = (process.env.GEMINI_MODEL || "").trim();
+  try {
+    const r = await fetch(BASE + "/models?pageSize=100", { headers: { "x-goog-api-key": GEMINI } });
+    const b = await r.json().catch(() => ({}));
+    const lista = (b.models || [])
+      .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+      .map((m) => String(m.name || "").replace(/^models\//, ""))
+      .filter((n) => n && !/embedding|aqa|imagen|veo|tts|native-audio|live|image-generation/.test(n))
+      .sort((a, b2) => prioridad(a) - prioridad(b2) || a.localeCompare(b2));
+    if (lista.length) {
+      /* el que pusiste en Vercel va primero, si de verdad existe */
+      cacheModelos = preferido && lista.includes(preferido)
+        ? [preferido, ...lista.filter((n) => n !== preferido)]
+        : lista;
+      return cacheModelos.slice(0, 6);
+    }
+  } catch (e) { /* si no se puede listar, seguimos con los de siempre */ }
+  return [preferido, "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"]
+    .filter((m, i, a) => m && a.indexOf(m) === i);
 }
 
 export async function POST(req) {
@@ -49,33 +78,39 @@ export async function POST(req) {
         generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 },
       });
 
+      const modelos = await modelosDisponibles();
+      const esperas = [0, 1500, 4000];   // reintentos cuando está saturado
       let ultimo = null;
-      for (const modelo of MODELOS_GEMINI) {
-        const r = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/" + modelo + ":generateContent",
-          {
+
+      for (const modelo of modelos) {
+        for (let intento = 0; intento < esperas.length; intento++) {
+          if (esperas[intento]) await dormir(esperas[intento]);
+
+          const r = await fetch(BASE + "/models/" + modelo + ":generateContent", {
             method: "POST",
             headers: { "content-type": "application/json", "x-goog-api-key": GEMINI },
             body: cuerpo,
+          });
+          const body = await r.json().catch(() => ({}));
+
+          if (r.ok) {
+            const cand = (body.candidates || [])[0];
+            const text = ((cand?.content?.parts) || []).map((p) => p.text || "").join("");
+            if (!text.trim())
+              return bad("empty_completion", "La IA no devolvió texto (" + (cand?.finishReason || "sin razón") + ")", 502);
+            return Response.json({ text, truncated: cand?.finishReason === "MAX_TOKENS" });
           }
-        );
-        const body = await r.json().catch(() => ({}));
 
-        if (r.ok) {
-          const cand = (body.candidates || [])[0];
-          const text = ((cand?.content?.parts) || []).map((p) => p.text || "").join("");
-          if (!text.trim())
-            return bad("empty_completion", "La IA no devolvió texto (" + (cand?.finishReason || "sin razón") + ")", 502);
-          return Response.json({ text, truncated: cand?.finishReason === "MAX_TOKENS" });
+          ultimo = { status: r.status, msg: body?.error?.message || "error " + r.status, modelo };
+          if (r.status === 503 || r.status === 429) continue;   // saturado: reintentar
+          break;                                                // otro error: cambiar de modelo
         }
-
-        ultimo = { status: r.status, msg: body?.error?.message || "error " + r.status, modelo };
-        /* 404 = ese modelo no existe para esta llave: probar el siguiente */
-        if (r.status === 404) continue;
-        break;
+        if (ultimo && ultimo.status !== 503 && ultimo.status !== 429 && ultimo.status !== 404) break;
       }
 
       const s = ultimo?.status;
+      if (s === 503)
+        return bad("overloaded", "Los modelos gratuitos están saturados ahora mismo. Espera medio minuto y vuelve a intentar.", 503);
       const code =
         s === 429 ? "rate_limited" :
         s === 401 || s === 403 ? "not_granted" :
