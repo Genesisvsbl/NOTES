@@ -51,7 +51,13 @@ textarea,input,select{font:inherit;color:inherit}
 .btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 
 /* ======================= PORTADA / BIBLIOTECA ======================= */
-#library{height:100dvh;overflow:auto;background:var(--hero)}
+#home{height:100dvh;overflow:auto;background:var(--hero)}
+#library{height:100dvh;display:flex;flex-direction:column;background:var(--ground)}
+.lib-body{flex:1;overflow:auto;padding:24px 20px 70px}
+.lib-inner{max-width:1000px;margin:0 auto}
+.libtitle{font-family:var(--font-dis);font-size:18px;font-weight:600;display:flex;align-items:center;gap:9px}
+.libtitle em{font-style:normal;font-size:11.5px;color:var(--muted);font-weight:400}
+.cnt{font-style:normal;font-size:11.5px;color:var(--muted);margin-left:2px}
 .hero{padding:clamp(52px,10vh,116px) 26px 34px;max-width:1060px;margin:0 auto}
 .brand{display:block;margin:0 0 20px}
 .brand svg{display:block;width:clamp(88px,15vw,126px);height:auto}
@@ -73,11 +79,6 @@ textarea,input,select{font:inherit;color:inherit}
 .caps{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:30px;font-family:var(--font-mono);
   font-size:11.5px;color:var(--muted)}
 .caps i{font-style:normal;color:var(--accent)}
-.shelf{background:var(--ground);border-top:1px solid var(--line);min-height:44vh;padding:30px 26px 70px}
-.shelf-in{max-width:1060px;margin:0 auto}
-.shelf h2{font-family:var(--font-dis);font-size:20px;font-weight:600;margin:0 0 16px;
-  display:flex;align-items:center;gap:10px}
-.shelf h2 em{font-style:normal;font-family:var(--font-mono);font-size:11px;color:var(--muted);font-weight:400}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(186px,1fr));gap:16px}
 .nb{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
   box-shadow:var(--shadow-1);overflow:hidden;display:flex;flex-direction:column}
@@ -114,7 +115,7 @@ textarea,input,select{font:inherit;color:inherit}
 .pager button{width:28px;height:28px;border-radius:6px;display:grid;place-items:center}
 .pager button:hover{background:var(--panel);color:var(--accent)}
 .pager span{font-family:var(--font-mono);font-size:12.5px;padding:0 6px;color:var(--muted);
-  font-variant-numeric:tabular-nums}
+  font-variant-numeric:tabular-nums;white-space:nowrap;min-width:44px;text-align:center}
 .work{flex:1;display:flex;min-height:0;position:relative}
 
 .rail{width:62px;flex:0 0 auto;background:var(--panel);border-right:1px solid var(--line);
@@ -253,14 +254,15 @@ textarea.ta.code{font-family:var(--font-mono);font-size:12.5px;min-height:150px}
 }
 /* ================= celular ================= */
 @media (max-width:560px){
-  .bar{height:52px;padding:0 6px;gap:5px;overflow-x:auto;scrollbar-width:none}
-  .bar::-webkit-scrollbar{display:none}
+  .bar{height:52px;padding:0 6px;gap:4px;flex-wrap:nowrap;overflow:hidden}
   .bar .btn{flex:0 0 auto}
-  .nbname{width:78px;max-width:78px;font-size:15px;padding:4px}
+  .nbname{display:none}
   .lbl-md{display:none}
   #studioBtn,#instrBtn{width:38px;padding:0}
   #zoomOut,#zoomIn,#zoomLabel,#stylus,#redo{display:none}
-  .pager{height:34px}
+  .pager{height:36px;padding:0 2px;flex:0 0 auto}
+  .pager span{padding:0 3px;font-size:12px}
+  .libtitle{font-size:15.5px}
   .work{flex-direction:column}
   .scroll{order:1;padding:8px;flex:1}
   .rail{order:2;width:100%;height:auto;flex-direction:row;align-items:center;justify-content:flex-start;
