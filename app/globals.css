@@ -251,6 +251,36 @@ textarea.ta.code{font-family:var(--font-mono);font-size:12.5px;min-height:150px}
   .nbname{width:120px}
   .scroll{padding:12px}
 }
+/* ================= celular ================= */
+@media (max-width:560px){
+  .bar{height:52px;padding:0 6px;gap:5px;overflow-x:auto;scrollbar-width:none}
+  .bar::-webkit-scrollbar{display:none}
+  .bar .btn{flex:0 0 auto}
+  .nbname{width:78px;max-width:78px;font-size:15px;padding:4px}
+  .lbl-md{display:none}
+  #studioBtn,#instrBtn{width:38px;padding:0}
+  #zoomOut,#zoomIn,#zoomLabel,#stylus,#redo{display:none}
+  .pager{height:34px}
+  .work{flex-direction:column}
+  .scroll{order:1;padding:8px;flex:1}
+  .rail{order:2;width:100%;height:auto;flex-direction:row;align-items:center;justify-content:flex-start;
+    gap:8px;padding:7px 9px;border-right:0;border-top:1px solid var(--line);overflow-x:auto;
+    overflow-y:hidden;scrollbar-width:none;flex:0 0 auto}
+  .rail::-webkit-scrollbar{display:none}
+  .rail hr{width:1px;height:28px;border-top:0;border-left:1px solid var(--line);margin:0 3px;flex:0 0 auto}
+  .tool{width:40px;height:40px;flex:0 0 auto}
+  .swatches{grid-template-columns:repeat(4,20px);gap:6px}
+  .sizes{flex-direction:row;gap:4px}
+  .sz{width:28px;height:26px}
+  .fontsel{width:60px;flex:0 0 auto}
+  .drawer{top:0;width:170px}
+  .hero{padding:34px 18px 26px}
+  .brand svg{width:74px}
+  .tagline{font-size:16px}
+  .shelf{padding:22px 18px 50px}
+  .modal{border-radius:12px;padding:17px}
+  #selbar button{height:34px;padding:0 12px}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 
