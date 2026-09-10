@@ -129,6 +129,7 @@ textarea,input,select{font:inherit;color:inherit}
 .swatches{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:0 0 auto}
 .sw{width:20px;height:20px;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
 .sw[aria-pressed="true"]{border-color:var(--ink);transform:scale(1.12)}
+.sw.libre{background:conic-gradient(#E0457B,#F7E14A,#8BE58B,#7FD7F5,#6B3FA0,#E0457B)}
 .sizes{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto}
 .sz{width:34px;height:20px;border-radius:6px;display:grid;place-items:center}
 .sz:hover{background:var(--panel-2)}
@@ -243,6 +244,14 @@ textarea.ta.code{font-family:var(--font-mono);font-size:12.5px;min-height:150px}
 .modal-btns .btn{height:38px;padding:0 16px}
 .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
 .btn.danger:hover{filter:brightness(1.08);color:#fff;border-color:var(--danger)}
+.save{flex:0 0 auto}
+.save svg{width:17px;height:17px}
+.save.dirty{background:var(--accent);border-color:var(--accent);color:#fff;animation:latir 1.6s infinite}
+.save.dirty:hover{filter:brightness(1.08);color:#fff}
+@keyframes latir{0%,100%{box-shadow:0 0 0 0 rgba(224,69,123,.45)}50%{box-shadow:0 0 0 7px rgba(224,69,123,0)}}
+.save.saving{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.save.saved{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent)}
+.save.err{background:var(--danger);border-color:var(--danger);color:#fff}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;
   background:var(--ink);color:var(--ground);padding:10px 15px;border-radius:9px;font-size:13px;
   box-shadow:var(--shadow-2);max-width:min(460px,88vw)}
