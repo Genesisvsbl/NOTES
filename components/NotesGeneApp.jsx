@@ -11,7 +11,13 @@ import { createAI } from "@/lib/ai-client";
  *
  * El usuario se crea corriendo supabase/setup.sql en el SQL Editor.
  * Si cambias la clave, cambia también la del SQL (van juntas).                  */
-const CORREO = process.env.NEXT_PUBLIC_LOGIN_EMAIL || "gene@notesgene.app";
+/* Cada clave abre su propia cuenta: los cuadernos de uno no los ve el otro.
+ * Para agregar a alguien: una línea aquí y el mismo usuario en supabase/setup.sql. */
+const CUENTAS = {
+  "3026": "gene@notesgene.app",
+  "2630": "cristian@notesgene.app",
+};
+const correoDe = (c) => CUENTAS[c.trim()] || (process.env.NEXT_PUBLIC_LOGIN_EMAIL || "gene@notesgene.app");
 const aClave = (c) => "NG-" + c.trim() + "-notesgene";
 
 function Logo() {
@@ -73,7 +79,7 @@ export default function NotesGeneApp() {
     if (!clave.trim()) { setErr("Escribe tu clave."); setBusy(false); return; }
 
     const { error } = await supabase.auth.signInWithPassword({
-      email: CORREO,
+      email: correoDe(clave),
       password: aClave(clave),
     });
 

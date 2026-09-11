@@ -76,61 +76,71 @@ create policy "images propias" on public.images
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ============================================================
--- Usuario que entra con la clave 3026
--- La app manda 'NG-3026-notesgene' como contraseña real.
+-- Usuarios que entran con clave. Cada uno ve solo SUS cuadernos.
+--   clave 3026 → gene@notesgene.app
+--   clave 2630 → cristian@notesgene.app
+-- La app manda 'NG-<clave>-notesgene' como contraseña real.
+-- Para agregar a alguien: una fila más en la lista de abajo
+-- y una línea en components/NotesGeneApp.jsx (CUENTAS).
 -- ============================================================
 do $$
 declare
-  v_correo text := 'gene@notesgene.app';
-  v_pass   text := 'NG-3026-notesgene';
+  cuenta record;
   uid uuid;
 begin
-  select id into uid from auth.users where email = v_correo;
+  for cuenta in
+    select * from (values
+      ('gene@notesgene.app',     'NG-3026-notesgene', 'Gene'),
+      ('cristian@notesgene.app', 'NG-2630-notesgene', 'Cristian')
+    ) as t(correo, pass, nombre)
+  loop
+    select id into uid from auth.users where email = cuenta.correo;
 
-  if uid is null then
-    uid := gen_random_uuid();
+    if uid is null then
+      uid := gen_random_uuid();
 
-    insert into auth.users (
-      instance_id, id, aud, role, email, encrypted_password,
-      email_confirmed_at, created_at, updated_at,
-      raw_app_meta_data, raw_user_meta_data,
-      confirmation_token, recovery_token, email_change_token_new, email_change
-    ) values (
-      '00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated',
-      v_correo, crypt(v_pass, gen_salt('bf')),
-      now(), now(), now(),
-      '{"provider":"email","providers":["email"]}', '{"nombre":"Gene"}',
-      '', '', '', ''
-    );
-
-    begin
-      insert into auth.identities (
-        id, user_id, provider_id, identity_data, provider,
-        last_sign_in_at, created_at, updated_at
+      insert into auth.users (
+        instance_id, id, aud, role, email, encrypted_password,
+        email_confirmed_at, created_at, updated_at,
+        raw_app_meta_data, raw_user_meta_data,
+        confirmation_token, recovery_token, email_change_token_new, email_change
       ) values (
-        gen_random_uuid(), uid, uid::text,
-        jsonb_build_object('sub', uid::text, 'email', v_correo), 'email',
-        now(), now(), now()
+        '00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated',
+        cuenta.correo, crypt(cuenta.pass, gen_salt('bf')),
+        now(), now(), now(),
+        '{"provider":"email","providers":["email"]}',
+        jsonb_build_object('nombre', cuenta.nombre),
+        '', '', '', ''
       );
-    exception when others then
-      -- versiones de Supabase sin la columna id en auth.identities
-      insert into auth.identities (
-        user_id, provider_id, identity_data, provider,
-        last_sign_in_at, created_at, updated_at
-      ) values (
-        uid, uid::text,
-        jsonb_build_object('sub', uid::text, 'email', v_correo), 'email',
-        now(), now(), now()
-      );
-    end;
 
-    raise notice 'Usuario creado: % (clave 3026)', v_correo;
-  else
-    update auth.users
-       set encrypted_password = crypt(v_pass, gen_salt('bf')),
-           email_confirmed_at = coalesce(email_confirmed_at, now()),
-           updated_at = now()
-     where id = uid;
-    raise notice 'Clave actualizada para %', v_correo;
-  end if;
+      begin
+        insert into auth.identities (
+          id, user_id, provider_id, identity_data, provider,
+          last_sign_in_at, created_at, updated_at
+        ) values (
+          gen_random_uuid(), uid, uid::text,
+          jsonb_build_object('sub', uid::text, 'email', cuenta.correo), 'email',
+          now(), now(), now()
+        );
+      exception when others then
+        insert into auth.identities (
+          user_id, provider_id, identity_data, provider,
+          last_sign_in_at, created_at, updated_at
+        ) values (
+          uid, uid::text,
+          jsonb_build_object('sub', uid::text, 'email', cuenta.correo), 'email',
+          now(), now(), now()
+        );
+      end;
+
+      raise notice 'Usuario creado: %', cuenta.correo;
+    else
+      update auth.users
+         set encrypted_password = crypt(cuenta.pass, gen_salt('bf')),
+             email_confirmed_at = coalesce(email_confirmed_at, now()),
+             updated_at = now()
+       where id = uid;
+      raise notice 'Clave actualizada: %', cuenta.correo;
+    end if;
+  end loop;
 end $$;
